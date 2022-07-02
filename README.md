@@ -5,7 +5,7 @@
 $ git clone https://github.com/L4zzur/pyrogram-channels.git
 ```
 
-###### Go to "" folder:
+###### Go to "pyrogram-channels" folder:
 ```bash
 $ cd pyrogram-channels
 ```
