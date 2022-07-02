@@ -1,35 +1,51 @@
+import logging
 import sys
 from pyrogram import Client
 from configparser import ConfigParser
+from pyrogram.errors import FloodWait
 
 config_object = ConfigParser()
 
 anim = ['|', '/', '-', '\\']
+
+messages = []
 
 def save_ini(config_object):
     with open('config.ini', 'w') as conf:
         config_object.write(conf)
 
 def backup(app, posts):
+    global messages
     with app:
         count = 0
-        for message in app.iter_history(posts['channel']):
-            sys.stdout.write('\rloading ' + anim[count % len(anim)])
-            if message.author_signature == posts['signature']:
-                count += 1
-                app.copy_message(posts['backup'], posts['channel'], message.message_id)
+        try:
+            for message in app.get_chat_history(posts['channel']):
+                sys.stdout.write('\rloading ' + anim[count % len(anim)])
+                if message.author_signature == posts['signature']:
+                    count += 1
+                    messages.insert(0, message)
+        except FloodWait:
+            pass
+        for message in messages:
+            message.copy(posts['backup'])
     sys.stdout.write('\r')
+    messages = []
     print(f'Backuped {count} messages\n')
 
 def clear(app, posts):
+    global messages
     with app:
         count = 0
-        for message in app.iter_history(posts['channel']):
+        for message in app.get_chat_history(posts['channel']):
             sys.stdout.write('\rloading ' + anim[count % len(anim)])
             if message.author_signature == posts['signature']:
                 count += 1
-                app.delete_messages(posts['channel'], message.message_id)
+                messages.insert(0, message)
+                app.delete_messages(posts['channel'], message.id)
+        for message in messages:
+            message.copy(posts['backup'])
     sys.stdout.write('\r')
+    messages = []
     print(f'Deleted {count} messages')
 
 def main():
@@ -55,12 +71,11 @@ def main():
         userinfo = config_object["USERINFO"]
         posts = config_object["POSTS"]
 
-
     if userinfo['api_id'] == 'None' or userinfo['api_hash'] == 'None':
         print('Insert the following data by taking them from https://my.telegram.org/')
         ai = input('api_id: ')
         ah = input('api_hash: ')
-        
+
         userinfo['api_id'] = ai
         userinfo['api_hash'] = ah
 
@@ -76,11 +91,21 @@ def main():
             posts['backup'] = bckp
 
         posts['channel'] = channel
-        posts['signature'] = signature
+        posts['signature'] = str(signature)
 
         save_ini(config_object)
 
-    app = Client('tg_clear_posts', api_id=userinfo['api_id'], api_hash=userinfo['api_hash'])
+    app = Client('tg_clear', api_id=userinfo['api_id'], api_hash=userinfo['api_hash'])
+    logging.getLogger('pyrogram').setLevel(logging.ERROR)
+
+    with app:
+        count = 0
+        for dialog in app.get_dialogs():
+            count += 1
+            sys.stdout.write('\rloading ' + anim[count % len(anim)])
+            if dialog.chat.type == "channel":
+                continue
+        sys.stdout.write('\r')
 
     while True:
         ans = input('what do you want to do? backup/clear/exit: ')
@@ -95,6 +120,7 @@ def main():
             print('command not found')
 
 if __name__ == '__main__':
-    main()
-
-            
+    try:
+        main()
+    except KeyboardInterrupt:
+        exit()
