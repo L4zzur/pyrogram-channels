@@ -40,10 +40,7 @@ def clear(app, posts):
             sys.stdout.write('\rloading ' + anim[count % len(anim)])
             if message.author_signature == posts['signature']:
                 count += 1
-                messages.insert(0, message)
                 app.delete_messages(posts['channel'], message.id)
-        for message in messages:
-            message.copy(posts['backup'])
     sys.stdout.write('\r')
     messages = []
     print(f'Deleted {count} messages')
